@@ -25,7 +25,7 @@
 			spacingRight : 20
 		},
 		title : {
-			text : 'TODO1'
+			text : 'Population'
 		},
 		xAxis : {
 			maxZoom : 20,
@@ -35,6 +35,7 @@
 			}
 		},
 		yAxis : {
+			min : 0,
 			title : {
 				text : 'number'
 			}
@@ -65,7 +66,7 @@
 		series : [
 				{
 					type : 'area',
-					name : 'Algen',
+					name : 'alga',
 					color : '#000000',
 					fillColor : {
 						linearGradient : [ 0, 0, 0, 300 ],
@@ -78,12 +79,25 @@
 				},
 				{
 					type : 'area',
-					name : 'Fische',
+					name : 'fishes',
 					color : '#FF0000',
 					fillColor : {
 						linearGradient : [ 0, 0, 0, 300 ],
 						stops : [ [ 0, Highcharts.getOptions().colors[0] ],
 								[ 1, 'rgba(255,0,0,0)' ] ]
+					},
+					pointInterval : 1,
+					pointStart : 0,
+					data : []
+				},
+				{
+					type : 'area',
+					name : 'sharks',
+					color : '#00FF00',
+					fillColor : {
+						linearGradient : [ 0, 0, 0, 300 ],
+						stops : [ [ 0, Highcharts.getOptions().colors[0] ],
+								[ 1, 'rgba(0,255,0,0)' ] ]
 					},
 					pointInterval : 1,
 					pointStart : 0,
@@ -197,11 +211,24 @@
 
 	function doStep() {
 		step++;
-		console.log(step);
 		board = calculate();
 		clearBoard();
 		drawBoard();
 		data[step] = count();
+		
+		var stableCounter = 0;
+		for (var i = step;;--i) {
+			if (i > 0 && data[i] == data[i-1]) {
+				stableCounter++;
+			} else {
+				break;
+			}
+		}
+		console.log(step + ", " + stableCounter);
+		if (stableCounter >= $("#inputStable").val()) {
+			// population looks stable --> stop simulation
+			stop();
+		}
 	}
 
 	function doStatistic() {
@@ -216,12 +243,9 @@
 		$("#inputY").attr('disabled', 'disabled');
 		$("#inputSaturation").attr('disabled', 'disabled');
 		$("#inputSleep").attr('disabled', 'disabled');
-		run = setInterval(function() {
-			doStep()
-		}, $("#inputSleep").val());
-		runStatistic = setInterval(function() {
-			doStatistic()
-		}, SECOND_1);
+		$("#inputStable").attr('disabled', 'disabled');
+		run = setInterval(function() { doStep() }, $("#inputSleep").val());
+		runStatistic = setInterval(function() { doStatistic() }, SECOND_1);
 		$("#stop").removeAttr('disabled');
 	}
 
@@ -229,12 +253,14 @@
 		$("#stop").attr('disabled', 'disabled');
 		clearInterval(run);
 		clearInterval(runStatistic);
+		doStatistic();
 		$("#start").removeAttr('disabled');
 		$("#generate").removeAttr('disabled');
 		$("#inputX").removeAttr('disabled');
 		$("#inputY").removeAttr('disabled');
 		$("#inputSaturation").removeAttr('disabled');
 		$("#inputSleep").removeAttr('disabled');
+		$("#inputStable").removeAttr('disabled');
 	}
 
 	function show(id) {
@@ -251,28 +277,27 @@
 </head>
 <body>
 
-	<div style="width: 150px; display: inline-block;">Width:</div>
+	<div style="width: 200px; display: inline-block;">Width:</div>
 	<div style="width: 20px; display: inline-block;">10</div>
-	<input type="range" id="inputX" min="10" max="100" step="10" value="10"
-		style="width: 200px;">100
+	<input type="range" id="inputX" min="10" max="100" step="10" value="10" style="width: 200px;">100
 	<br>
-	<div style="width: 150px; display: inline-block;">Height:</div>
+	<div style="width: 200px; display: inline-block;">Height:</div>
 	<div style="width: 20px; display: inline-block;">10</div>
-	<input type="range" id="inputY" min="10" max="100" step="10" value="10"
-		style="width: 200px;">100
+	<input type="range" id="inputY" min="10" max="100" step="10" value="10" style="width: 200px;">100
 	<br>
-	<div style="width: 150px; display: inline-block;">Saturation:</div>
+	<div style="width: 200px; display: inline-block;">Saturation:</div>
 	<div style="width: 20px; display: inline-block;">0.1</div>
-	<input type="range" id="inputSaturation" step="0.1" min="0.1" max="1"
-		value="0.5" style="width: 200px;">1
+	<input type="range" id="inputSaturation" step="0.1" min="0.1" max="1" value="0.5" style="width: 200px;">1
 	<br>
-	<div style="width: 150px; display: inline-block;">ms between
-		steps:</div>
+	<div style="width: 200px; display: inline-block;">ms between steps:</div>
 	<div style="width: 20px; display: inline-block;">10</div>
-	<input type="range" id="inputSleep" step="10" min="10" max="1000"
-		value="200" style="width: 200px;">1000
+	<input type="range" id="inputSleep" step="10" min="10" max="1000" value="200" style="width: 200px;">1000
 	<br>
-
+	<div style="width: 200px; display: inline-block;">stop if stable after n steps:</div>
+	<div style="width: 20px; display: inline-block;">10</div>
+	<input type="range" id="inputStable" step="10" min="10" max="100" value="20" style="width: 200px;">100
+	<br>
+	
 	<br>
 
 	<button id="generate" type="button" onclick="init();">Generate</button>
@@ -283,20 +308,16 @@
 	<br>
 
 	<div id="menu">
-		<div id="menuBoard"
-			style="display: inline-block; cursor: pointer; background-color: #ccc; padding: 3px 10px;">Board</div>
-		<div id="menuStatistic"
-			style="display: inline-block; cursor: pointer; background-color: #ccc; padding: 3px 10px;">Statistic</div>
+		<div id="menuBoard" style="display: inline-block; cursor: pointer; background-color: #ccc; padding: 3px 10px;">Board</div>
+		<div id="menuStatistic" style="display: inline-block; cursor: pointer; background-color: #ccc; padding: 3px 10px;">Statistic</div>
 	</div>
 
 	<div id="tabs">
-		<div id="divBoard"
-			style="border: 1px solid #ccc; width: 100%; height: 100%; padding: 10px;">
+		<div id="divBoard" style="border: 1px solid #ccc; width: 100%; height: 100%; padding: 10px;">
 			<canvas id="board" width="100" height="100"
 				style="border: 1px solid #d3d3d3;">Your browser does not support the HTML5 canvas tag.</canvas>
 		</div>
-		<div id="divStatistic"
-			style="display: none; border: 1px solid #ccc; width: 100%; height: 100%; padding: 10px;">
+		<div id="divStatistic" style="display: none; border: 1px solid #ccc; width: 100%; height: 100%; padding: 10px;">
 			<div id="statistic"
 				style="min-width: 400px; height: 300px; margin: 0 auto"></div>
 		</div>
